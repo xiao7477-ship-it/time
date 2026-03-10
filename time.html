@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apple Style Clock Screensaver - Pro Max</title>
+    <style>
+        /* 核心重置与基础设置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000000;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* 苹果标准系统字体 */
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #ffffff;
+        }
+
+        /* --- 环绕高光动画定义 --- */
+        @property --spin-angle {
+            syntax: '<angle>';
+            initial-value: 0deg;
+            inherits: false;
+        }
+
+        @keyframes rotateGlow {
+            0% { --spin-angle: 0deg; }
+            100% { --spin-angle: 360deg; }
+        }
+
+        /* 1. 背景流动的橙红光影效果 */
+        .ambient-light {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 80vw;
+            height: 80vw;
+            background: radial-gradient(circle, rgba(255, 69, 0, 0.45) 0%, rgba(255, 59, 48, 0.15) 40%, rgba(0, 0, 0, 0) 70%);
+            transform: translate(-50%, -50%);
+            filter: blur(80px);
+            z-index: 1;
+            animation: flowLight 6s infinite alternate ease-in-out;
+            pointer-events: none;
+        }
+
+        .ambient-light-2 {
+            position: absolute;
+            top: 20%;
+            left: 30%;
+            width: 60vw;
+            height: 60vw;
+            background: radial-gradient(circle, rgba(255, 149, 0, 0.35) 0%, rgba(0, 0, 0, 0) 60%);
+            filter: blur(60px);
+            z-index: 1;
+            animation: flowLight2 8s infinite alternate-reverse ease-in-out;
+            pointer-events: none;
+        }
+
+        /* 2. 主体容器，占据画面的 70% */
+        .main-wrapper {
+            width: 70vw;
+            height: 70vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            z-index: 10;
+            /* 修正视觉重心：整体向下偏移，抵消底部刻度和日期的高度，让时钟主体处于屏幕绝对中心 */
+            transform: translateY(6vh);
+        }
+
+        /* 时分双框布局容器 */
+        .time-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            width: 72%; /* 整体缩小20% (原 90%) */
+            height: 46.8%; /* 整体缩小20% (原 58.5%) */
+            gap: 2.4vw; /* 间距也等比缩小20% (原 3vw) */
+        }
+
+        /* 独立的毛玻璃 UI 框 */
+        .glass-panel {
+            flex: 1;
+            position: relative; /* 核心：定位高光边框 */
+            background: rgba(30, 30, 30, 0.35);
+            /* 1. 弱化静态基础边框透明度（0.1 -> 0.04），为动态光让路 */
+            border: 1px solid rgba(255, 255, 255, 0.04); 
+            border-radius: 4vw;
+            backdrop-filter: blur(50px) saturate(180%);
+            -webkit-backdrop-filter: blur(50px) saturate(180%);
+            /* 2. 将原本的厚度高光变细 (2px -> 1px) 且透明度大幅降低 (0.2 -> 0.06) */
+            box-shadow: 0 40px 80px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 玻璃框的一分钟环绕高光边：真实物理反射质感 */
+        .glass-panel::after {
+            content: "";
+            position: absolute;
+            inset: -1px; /* 贴合玻璃边缘 */
+            border-radius: inherit;
+            padding: 1px; /* 真实玻璃边缘高光通常很细，形成倒角感 */
+            /* 模拟环境光反射：主光源（纯白高光）和 副光源（橙红微光）对立，整体平滑过渡 */
+            background: conic-gradient(
+                from var(--spin-angle),
+                rgba(255, 255, 255, 0.9) 0%,     /* 强白高光核心 */
+                rgba(255, 255, 255, 0.15) 15%,   /* 平滑衰减 */
+                rgba(255, 255, 255, 0.05) 30%,   /* 暗部 */
+                rgba(255, 69, 0, 0.1) 40%,       /* 底部橙红环境光边缘 */
+                rgba(255, 80, 20, 0.6) 50%,      /* 橙红高光核心 */
+                rgba(255, 69, 0, 0.1) 60%,       /* 平滑衰减 */
+                rgba(255, 255, 255, 0.05) 70%,   /* 暗部 */
+                rgba(255, 255, 255, 0.15) 85%,   /* 过渡回强白光 */
+                rgba(255, 255, 255, 0.9) 100%
+            );
+            /* 蒙版镂空技术，只保留 padding 描边区域 */
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            /* 一分钟转一圈，并且永远连续 */
+            animation: rotateGlow 60s linear infinite;
+            z-index: 1;
+            /* 物理折射：仅保留极细微的模糊，让光泽变锋利，恢复玻璃质感 */
+            filter: blur(1px);
+            opacity: 0.9;
+        }
+
+        /* 时钟主体数字：苹果原生锁屏风格 */
+        .time-text {
+            font-size: 12.8vw; /* 整体缩小20% (原 16vw) */
+            font-weight: 800;
+            font-family: "SF Pro Rounded", "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+            letter-spacing: -0.5vw;
+            line-height: 0.82;
+            
+            /* 恢复字体底部可见度：底部不透明度从 0.00 提升至 0.25，保留渐变同时不再过度隐形 */
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.80) 0%, rgba(255, 255, 255, 0.25) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 15px 30px rgba(255, 255, 255, 0.15));
+
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: scale(1, 1.5) translateY(-3%); 
+            
+            position: relative;
+            z-index: 2; /* 确保文字在光晕上层 */
+        }
+
+        /* 文字边缘的一分钟环绕高光：内部折射质感 */
+        .time-text::after {
+            content: attr(data-text); /* 同步获取文字内容 */
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: -1; /* 置于主文字下方，透过半透明产生折射 */
+            
+            /* 描边变细，弱化光晕轮廓 */
+            -webkit-text-stroke: 2px transparent;
+            
+            /* 弱化光效核心颜色值，不再喧宾夺主 */
+            background: conic-gradient(
+                from var(--spin-angle),
+                rgba(255, 255, 255, 0.5) 0%,
+                rgba(255, 255, 255, 0.05) 15%,
+                rgba(255, 255, 255, 0.0) 30%,
+                rgba(255, 69, 0, 0.0) 40%,
+                rgba(255, 80, 20, 0.3) 50%,
+                rgba(255, 69, 0, 0.0) 60%,
+                rgba(255, 255, 255, 0.0) 70%,
+                rgba(255, 255, 255, 0.05) 85%,
+                rgba(255, 255, 255, 0.5) 100%
+            );
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            
+            animation: rotateGlow 60s linear infinite;
+            /* 增加一点模糊散景，大幅降低透明度，让折射光变得若隐若现 */
+            filter: blur(3px); 
+            opacity: 0.4; 
+        }
+
+        /* 3. 年月日点缀（框外底部） */
+        .date-display {
+            font-size: 2vw;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.7);
+            letter-spacing: 0.3vw;
+            margin-top: 6vh;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        /* 4. 椭圆与镜头虚化刻度容器 */
+        .ticks-container {
+            width: 100%;
+            height: 144px; /* 放大20% (原 120px) */
+            position: relative;
+            margin-top: 2vh;
+        }
+
+        /* 单个刻度的基础设定 */
+        .tick {
+            position: absolute;
+            bottom: 12px; /* 放大20% (原 10px) */
+            left: 50%;
+            width: 6px; /* 放大20% (原 5px) */
+            height: 17px; /* 放大20% (原 14px) */
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 3px;
+            transform-origin: bottom center;
+            
+            /* 开启 Safari 3D 硬件加速，彻底解决高频更新导致的闪烁问题 */
+            -webkit-transform: translate3d(calc(-50% + var(--tx)), var(--ty), 0) rotate(var(--rot));
+            transform: translate3d(calc(-50% + var(--tx)), var(--ty), 0) rotate(var(--rot));
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            
+            filter: blur(var(--blur));
+            opacity: var(--base-opacity);
+            
+            transition: height 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+                        background-color 0.3s,
+                        box-shadow 0.3s,
+                        opacity 0.3s;
+        }
+
+        .tick.active {
+            height: 54px; /* 放大20% (原 45px) */
+            background-color: #FF4500;
+            box-shadow: 0 0 25px rgba(255, 69, 0, 1), 0 0 50px rgba(255, 69, 0, 0.6);
+            opacity: 1; 
+            z-index: 10;
+        }
+
+        .tick.passed {
+            background-color: rgba(255, 255, 255, 0.9);
+            height: 26px; /* 放大20% (原 22px) */
+        }
+
+        /* 光影动画关键帧 */
+        @keyframes flowLight {
+            0% { transform: translate(-50%, -50%) scale(0.8) translate(15vw, -5vh); }
+            50% { transform: translate(-50%, -50%) scale(1.1) translate(-10vw, 15vh); }
+            100% { transform: translate(-50%, -50%) scale(0.9) translate(-15vw, -10vh); }
+        }
+
+        @keyframes flowLight2 {
+            0% { transform: scale(1) translate(0, 0); }
+            100% { transform: scale(1.3) translate(20vw, 20vh); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 背景光影 -->
+    <div class="ambient-light"></div>
+    <div class="ambient-light-2"></div>
+
+    <!-- 主体容器 (70%) -->
+    <div class="main-wrapper">
+        
+        <!-- 时分双框 -->
+        <div class="time-wrapper">
+            <div class="glass-panel">
+                <!-- 添加 data-text 用于同步 CSS 中的文字内容产生高光描边 -->
+                <div class="time-text" id="hours" data-text="00">00</div>
+            </div>
+            <div class="glass-panel">
+                <div class="time-text" id="minutes" data-text="00">00</div>
+            </div>
+        </div>
+        
+        <!-- 框外年月日 -->
+        <div class="date-display" id="date">--年--月--日 星期--</div>
+        
+        <!-- 镜头虚化刻度弧线 -->
+        <div class="ticks-container" id="ticks">
+            <!-- JavaScript 自动生成与排布 -->
+        </div>
+
+    </div>
+
+    <script>
+        // 初始化 60 个刻度
+        const ticksContainer = document.getElementById('ticks');
+        const tickElements = [];
+        const totalTicks = 60;
+
+        for (let i = 0; i < totalTicks; i++) {
+            const tick = document.createElement('div');
+            tick.className = 'tick';
+            ticksContainer.appendChild(tick);
+            tickElements.push(tick);
+        }
+
+        // 计算镜头虚化与椭圆底部排列的算法
+        function layoutTicks() {
+            const containerWidth = ticksContainer.offsetWidth;
+            const curveDepth = 84;  // 椭圆的弧度深度，放大20% (原 70)
+            const maxRotation = 35; // 两端刻度的最大倾斜角度
+
+            tickElements.forEach((tick, i) => {
+                const centerDist = (i - 29.5) / 29.5; 
+                
+                const xOffset = centerDist * (containerWidth / 2);
+                const yOffset = -Math.pow(centerDist, 2) * curveDepth;
+                const rotation = centerDist * maxRotation; 
+
+                tick.style.setProperty('--tx', `${xOffset}px`);
+                tick.style.setProperty('--ty', `${yOffset}px`);
+                tick.style.setProperty('--rot', `${rotation}deg`);
+            });
+        }
+
+        layoutTicks();
+        window.addEventListener('resize', layoutTicks);
+
+        // --- 时间更新逻辑 ---
+        const hoursDisplay = document.getElementById('hours');
+        const minutesDisplay = document.getElementById('minutes');
+        const dateDisplay = document.getElementById('date');
+        const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+
+        // 新增：利用 lastSeconds 拦截无效的高频刷新，这是解决 Safari 闪烁的核心
+        let lastSeconds = -1;
+
+        function updateClock() {
+            const now = new Date();
+            
+            // 时分分别推送到两个框内，并且更新 data-text 供高光图层读取
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            
+            hoursDisplay.textContent = h;
+            hoursDisplay.setAttribute('data-text', h);
+            
+            minutesDisplay.textContent = m;
+            minutesDisplay.setAttribute('data-text', m);
+            
+            // 日期逻辑
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            const day = now.getDate();
+            const weekday = weekdays[now.getDay()];
+            dateDisplay.textContent = `${year}年${month}月${day}日 ${weekday}`;
+
+            // 秒针跳跃动画与动态镜头跟随逻辑
+            const seconds = now.getSeconds();
+
+            // 拦截：如果秒数没有变化，停止后续的 DOM class 和 filter 重新赋值，解决闪烁
+            if (seconds !== lastSeconds) {
+                lastSeconds = seconds;
+
+                const maxBlur = 12; // 最大虚化像素
+                const sharpZone = 6;  // 绝对清晰的范围
+                const blurFadeRange = 14; // 过渡跨度
+
+                tickElements.forEach((tick, index) => {
+                    tick.className = 'tick'; 
+                    
+                    if (index === seconds) {
+                        tick.classList.add('active'); 
+                    } else if (index < seconds) {
+                        tick.classList.add('passed'); 
+                    }
+
+                    const dist = Math.abs(index - seconds);
+                    
+                    let normalizedDist = 0;
+                    if (dist > sharpZone) {
+                        normalizedDist = (dist - sharpZone) / blurFadeRange;
+                        if (normalizedDist > 1) normalizedDist = 1;
+                    }
+
+                    const blur = normalizedDist * maxBlur;
+                    const baseOpacity = 1 - (normalizedDist * 0.7); 
+
+                    tick.style.setProperty('--blur', `${blur}px`);
+                    tick.style.setProperty('--base-opacity', baseOpacity);
+                });
+            }
+        }
+
+        // 立即执行一次并开启 50ms 高频刷新，保证绝对精准跳动
+        updateClock();
+        setInterval(updateClock, 50);
+    </script>
+</body>
+</html>
